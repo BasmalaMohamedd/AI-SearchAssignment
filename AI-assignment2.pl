@@ -1,158 +1,115 @@
-%Uninformed Search
-%
-%input M, N
-%1- Initial State:
-%D, #, P, #, O
-%#, O, #, #, P
-%#, #, O, P, #
-%P, O, #, #, #
-%#, #, #, O, #
-%
-%
 
-%2- Goal State:
-%
-%example Path
-%*, *, *, D, O   counter = 1
-%#, O, #, #, P
-%#, #, O, P, #
-%P, O, #, #, #
-%#, #, #, O, #
-%
-%O is left to D
-%O is right to D
-%O is up to D
-%O is down to D
-%
-%
-%3- Actions:
-%move
-%move and collect P   counter++
-%
-%
-%4- Trasition Model:
-%moveUp
-%moveDown
-%moveRight
-%moveLeft
-%
-%
-%
-%5- Cost of path:
-%numberOfMoves
-%
+testPrintGrid:-
+    List = [d, -, p, -, o, -, 0, -, -, p, -, -, o, p, -, p, o, -, -, -, -, -, p, o, -],
+    printGrid(List, 0, 5).
 
 
-%1- getState(Open, [CurrentState, Parent], _)
-%2- CurrentState = Goal
-%
-%
-%
-InitialState = ["D", "-", "P", "P", "P",
-                "P", "-", "P", "P", "P",
-                "P", "P", "P", "P", "P",
-                "P", "P", "P", "P", "P",
-                "P", "P", "P", "P", "-"].
+solve:-
+    InitialState = [d, -, p, -, o, -, 0, -, -, p, -, -, o, p, -, p, o, -, -, -, -, -, p, o, -],
+    GoalState = [*, *, *, -, o, -, 0, *, *, *, -, -, o, *, *, p, o, *, *, -, -, -, d, o, -],
 
-GoalState = [*, *, *, "P", "P",
-             "P", "-", "P", "P", "P",
-             "P", "P", "P", "P", "P",
-             "P", "P", "P", "P", "P",
-             "P", "P", "P", "P", "-"].
+    search([[InitialState,null]], [],GoalState , 5, 5).
+search(Open, Closed, Goal, M, N):-
+    getState(Open, [CurrentState,Parent], _), % Step 1
+    CurrentState = Goal, !, % Step 2
+    write("Search is complete!"), nl,
+    printSolution([CurrentState,Parent], Closed, M).
 
-
-search(Open, Closed, Goal, Counter):-
-getState(Open, [CurrentState,Parent], _), % Step 1
-CurrentState = Goal, !, % Step 2
-write("Search is complete!"), nl,
-write(Counter), nl,
-printSolution([CurrentState,Parent], Closed).
-
-
-search(Open, Closed, Goal, Counter):-
-getState(Open, CurrentNode, TmpOpen),
-getAllValidChildren(CurrentNode,TmpOpen,Closed,Children, Counter, NewCounter), % Step3
-addChildren(Children, TmpOpen, NewOpen), % Step 4
-append(Closed, [CurrentNode], NewClosed), % Step 5.1
-search(NewOpen, NewClosed, Goal, NewCounter). % Step 5.2
-
+search(Open, Closed, Goal, M, N):-
+    getState(Open, CurrentNode, TmpOpen),
+    getAllValidChildren(M, N, CurrentNode, TmpOpen, Closed, Children), % Step3
+    addChildren(Children, TmpOpen, NewOpen), % Step 4
+    append(Closed, [CurrentNode], NewClosed), % Step 5.1
+    search(NewOpen, NewClosed, Goal, M, N). % Step 5.2
 
 % Implementation of step 3 to get the next states
-getAllValidChildren(Node, Open, Closed, Children, Counter, NewCounter):-
-findall(Next, getNextState(Node, Open, Closed, Next, Counter, NewCounter), Children).
+getAllValidChildren(M, N, Node, Open, Closed, Children):-
+    findall(Next, getNextState(M, N, Node, Open, Closed, Next), Children).
 
+getNextState(M, N, [State,_], Open, Closed, [Next,State]):-
+    move(M, N, State, Next),
+    \+member([Next,_], Open),
+    \+member([Next,_], Closed).
 
-getNextState([State,_], Open, Closed, [Next,State], Counter, NewCounter):-
-move(State, Next),
-not(member([Next,_], Open)),
-not(member([Next,_], Closed)),
-((Next is "P", NewCounter is Counter + 1); NewCounter is Counter).
-
-
-% Implementation of getState and addChildren determine the search
+% Implementation of getState and addChildren determine the search alg.
 % BFS
 getState([CurrentNode|Rest], CurrentNode, Rest).
+
 addChildren(Children, Open, NewOpen):-
-append(Open, Children, NewOpen).
+    append(Open, Children, NewOpen).
 
 % Implementation of printSolution to print the actual solution path
-printSolution([State, null],_):-
-write(State), nl.
-printSolution([State, Parent], Closed):-
-member([Parent, GrandParent], Closed),
-printSolution([Parent, GrandParent], Closed),
-write(State), nl.
+printSolution([State, null],_, M):-
+    printGrid(State, 0, M), nl.
+
+printSolution([State, Parent], Closed, M):-
+    member([Parent, GrandParent], Closed),
+    printSolution([Parent, GrandParent], Closed, M),
+    printGrid(State, 0, M), nl.
+
+printGrid([H|T], Count, RowSize):-
+    write(H), write(' '),
+    NewCount is Count + 1,
+    (0 is NewCount mod RowSize -> nl ; true),
+    printGrid(T, NewCount, RowSize).
 
 
 
+printGrid([], _, _).
 
-move(State, Next):-
+move(M, N, State, Next):-
+    left(M, State, Next); right(M, State, Next);
+    up(M,State, Next); down(M, N, State, Next).
 
-(   left(State, Next); right(State, Next);
-up(State, Next); down(State, Next)),
-not(Next = "O").
+left(M, State, Next):-
+    nth0(DroneIndex, State, d),
+    \+(0 is DroneIndex mod M),
+    NewIndex is DroneIndex - 1,
+    nth0(NewIndex, State, Element),
+    \+(Element = o),
+    % Swap
+    substitute(DroneIndex, State, *, TmpList1),
+    substitute(NewIndex, TmpList1, d, Next).
 
+right(M, State, Next):-
+    nth0(DroneIndex, State, d),
+    K is M - 1,
+    \+(K is DroneIndex mod M),
+    NewIndex is DroneIndex + 1,
+    nth0(NewIndex, State, Element),
+    \+(Element = o),
 
+    % Swap
+    substitute(DroneIndex, State, *, TmpList1),
+    substitute(NewIndex, TmpList1, d, Next).
 
-left(State, Next):-
-nth0(DroneTileIndex, State, "D"),
-not(0 is DroneTileIndex mod 5), %M = 5
-NewIndex is DroneTileIndex - 1,
-nth0(NewIndex, State, Element),
-% Swap
-substitute("D", State, *, TmpList1),
-substitute(Element, TmpList1, "D", Next).
+up(M,State, Next):-
+    nth0(DroneIndex, State, d),
+    DroneIndex >= M,
+    NewIndex is DroneIndex - M,
+    nth0(NewIndex, State, Element),
+    \+(Element = o),
 
-right(State, Next):-
-nth0(DroneTileIndex, State, "D"),
-not(4 is DroneTileIndex mod 5), %M = 5
-NewIndex is DroneTileIndex + 1,
-nth0(NewIndex, State, Element),
-% Swap
-substitute("D", State, *, TmpList1),
-substitute(Element, TmpList1, "D", Next).
+    % Swap
+    substitute(DroneIndex, State, Element, TmpList1),
+    substitute(NewIndex, TmpList1, d, Next).
 
-up(State, Next):-
-nth0(DroneTileIndex, State, "D"),
-DroneTileIndex > 4, %N = 5
-NewIndex is DroneTileIndex - 5, %M = 5
-nth0(NewIndex, State, Element),
-% Swap
-substitute("D", State, *, TmpList1),
-substitute(Element, TmpList1, "D", Next).
+down(M, N, State, Next):-
+    nth0(DroneIndex, State, d),
+    LastRowStart is M * (N - 1),
+    DroneIndex < LastRowStart + M,  % More accurate boundary check
+    NewIndex is DroneIndex + M,
+    nth0(NewIndex, State, Element),
+    \+(Element = o),
 
-down(State, Next):-
-nth0(DroneTileIndex, State, "D"),
-DroneTileIndex < 20, %N = 5
-NewIndex is DroneTileIndex + 5, %M = 5
-nth0(NewIndex, State, Element),
-% Swap
-substitute("D", State, *, TmpList1),
-substitute(Element, TmpList1, "D", Next).
+    % Swap
+    substitute(DroneIndex, State, *, TmpList1),
+    substitute(NewIndex, TmpList1, d, Next).
 
+substitute(Index, List, NewElement, NewList):-
+    subs(Index, 0, List, NewElement, NewList).
 
-
-substitute(Element, [Element|T], NewElement, [NewElement|T]):- !.
-
-substitute(Element, [H|T], NewElement, [H|NewT]):-
-substitute(Element, T, NewElement, NewT).
+subs(Index, Index, [_|T], NewElement, [NewElement|T]):- !.
+subs(Index, Counter, [H|T], NewElement, [H|NewT]):-
+    NewCounter is Counter + 1,
+    subs(Index, NewCounter, T, NewElement, NewT).
